@@ -1,0 +1,30 @@
+name: Setup VPS
+
+on:
+  workflow_dispatch:
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup bot on VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 188.166.63.185
+          username: root
+          password: ${{ secrets.VPS_PASSWORD }}
+          timeout: 300s
+          script: |
+            cd /root
+            rm -rf telegram-claude-bot
+            git clone https://${{ secrets.GH_TOKEN_VPS }}@github.com/perepelkavika74-max/telegram-claude-bot.git
+            cd telegram-claude-bot
+            npm install
+            npm install -g pm2
+            printf "TELEGRAM_TOKEN=${{ secrets.TELEGRAM_TOKEN }}\nANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}\n" > .env
+            pm2 delete telegram-claude-bot 2>/dev/null || true
+            pm2 start bot.js --name "telegram-claude-bot"
+            pm2 save
+            pm2 startup | tail -1 | bash || true
+            (crontab -l 2>/dev/null; echo "*/5 * * * * /root/telegram-claude-bot/update.sh >> /root/telegram-claude-bot/update.log 2>&1") | crontab -
+            echo "=== ГОТОВО ==="
